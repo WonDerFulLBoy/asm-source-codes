@@ -1,0 +1,187 @@
+.MODEL 	SMALL
+
+	SECTORSIZE		EQU	512
+	MAXTRACK		EQU	79
+	NUMSIDES		EQU	2
+	SECTOR_PER_TRACK 	EQU	18
+.DATA
+	BUF 	DB 	SECTORSIZE*SECTOR_PER_TRACK DUP (0)
+	SIDE 	DB 	0 
+	TRACK 	DB 	0 				
+  	HANDLE 	DW 	0 
+	FILENAME DB 	'C:\TEMP.DAT',00h
+
+	MSG1 	DB 	13,10,'Insert Your Disk InTo Drive A & Then Press A Key To Continue',13,10,'$'
+	MSG2 	DB 	13,10,'Insert A New Disk InTo Drive A & Then Press A Key To Continue',13,10,'$'
+
+.286
+
+.CODE
+
+MAIN	PROC
+
+	MOV	AX,@DATA
+	MOV 	DS,AX
+	
+	MOV 	AH,9
+	LEA 	DX,MSG1
+	INT 	21H
+
+	CALL 	WAITT
+
+	MOV 	AH,3CH		;CREAT A FILE
+	LEA 	DX,FILENAME
+	MOV 	CX,0
+	INT 	21H
+
+	MOV 	SIDE,0
+	MOV 	HANDLE,AX
+	MOV 	TRACK,1
+
+	CALL 	READTRACK 	
+COPY:
+	MOV 	TRACK,0
+
+COPYTRACK:
+
+	CALL 	READTRACK 
+	CALL 	WRITEFILE 
+	INC 	TRACK 
+	CMP 	TRACK,80 
+	JNZ 	COPYTRACK
+
+ 	INC 	SIDE 
+ 	CMP 	SIDE,1 
+	JZ 	COPY 
+	CALL 	CLOSEFILE 
+
+	MOV 	AH,09H
+	LEA 	DX,MSG2
+	INT 	21H
+
+	CALL 	WAITT
+
+	MOV 	SIDE,0
+
+	LEA 	DX,FILENAME
+	MOV 	AH,3DH
+	MOV 	AL,0
+	INT 	21H
+
+	MOV 	HANDLE,AX 
+
+	MOV 	TRACK,1
+	MOV 	SIDE,0
+
+	CALL 	WRITETRACK 
+WRITE:
+
+	MOV 	TRACK,0
+
+WRITE_ON_TRACK:
+
+	CALL	READFILE 
+ 	CALL 	WRITETRACK 
+ 	INC 	TRACK 
+ 	CMP 	TRACK,80 
+	JNZ 	WRITE_ON_TRACK 
+	INC 	SIDE 
+	CMP 	SIDE,1 
+	JZ 	WRITE 
+	CALL 	CLOSEFILE 
+
+	LEA 	DX,FILENAME	;DELETE THE TEMPORARY FILE
+	MOV 	AH,3AH
+	INT 	21H 		
+
+	MOV	AX,4c00h
+	INT 	21H
+	MAIN	ENDP
+;=================================================	
+READTRACK 	PROC 		;READ A TRACK
+	PUSH 	ES
+	MOV 	AX,DS				
+	MOV 	ES,AX
+	LEA 	BX,BUF
+	MOV 	AH,2
+	MOV 	DL,0 		
+	MOV 	DH,SIDE
+	MOV 	CH,TRACK
+	MOV 	CL,1 		
+	MOV 	AL,SECTOR_PER_TRACK
+	INT 	13H
+	POP 	ES
+	RET
+	READTRACK ENDP
+;=================================================
+WRITETRACK 	PROC		;WRITE A TRACK
+	LEA 	BX,BUF
+	PUSH 	ES
+	MOV 	AX,DS
+	MOV 	ES,AX
+	MOV 	AH,03 
+ 	MOV 	AL,SECTOR_PER_TRACK 
+	MOV 	CH,TRACK 			
+ 	MOV 	CL,1 
+ 	MOV 	DH,SIDE 
+ 	MOV 	DL,0 
+	INT 	13H
+	POP 	ES
+	RET
+	WRITETRACK ENDP
+;=================================================
+READFILE 	PROC		;READ A COMPLATE TRACK OF FILE AND PUT IT IN BUF (18*512 B)
+	MOV 	BX,HANDLE
+	MOV 	CX,SECTORSIZE*SECTOR_PER_TRACK
+ 	LEA 	DX,BUF 
+	MOV 	AH,3FH
+	INT 	21H
+	RET
+	READFILE ENDP
+;=================================================
+WRITEFILE 	PROC		;WRITE A COMPLATE TRACK OF BUF AND PUT IT IN DISK (18*512 B)	
+	MOV 	BX,HANDLE
+	MOV 	CX,SECTORSIZE*SECTOR_PER_TRACK
+	LEA 	DX,BUF
+	MOV 	AH,40H
+	INT 	21H				
+	RET
+	WRITEFILE ENDP
+;=================================================
+WAITT 	PROC			;WAITING FOR PRESS A KEY
+	MOV 	AH,0 
+	INT 	16H
+	RET
+	WAITT 	ENDP
+;=================================================
+CLOSEFILE 	PROC 		;CLOSE THE FILE & THE HANDLE OF IT
+	MOV 	AH,3EH
+	MOV 	BX,HANDLE
+	INT 	21H
+	RET
+	CLOSEFILE ENDP
+;=================================================	
+END 	MAIN
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
